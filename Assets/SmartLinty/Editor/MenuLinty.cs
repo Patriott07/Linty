@@ -1,14 +1,14 @@
 using UnityEditor;
 using UnityEngine;
 
-public class BelajarScript : EditorWindow
+public class MenuLinty : EditorWindow
 {
     // 2. Menambahkan Menu di bagian atas Unity (Tools -> PAHAM Assistant)
     [MenuItem("Tools/Linty Assisten Menu")]
     public static void ShowWindow()
     {
         // Buka atau fokus ke jendela
-        GetWindow<BelajarScript>("Linty Assistant");
+        GetWindow<MenuLinty>("Linty Assistant");
     }
 
     private void OnEnable()
