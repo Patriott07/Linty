@@ -1,3 +1,6 @@
+using System.Collections;
+using System.Collections.Generic;
+using Custom.Interface;
 using UnityEditor;
 using UnityEngine;
 
@@ -8,6 +11,14 @@ public class MenuLinty : EditorWindow
     private Texture2D activeTabTex;
     private Texture2D inactiveTabTex;
     private readonly string[] tabNames = { "Diagnosa", "Guide", "Structure", "Setting" };
+
+    private List<IDiagnosticRule> diagnosticRules = new List<IDiagnosticRule>()
+    {
+        // new TransformDiagnostic(),
+        // new Rigidbody2DDiagnostic(),
+        // new BoxCollider2DDiagnostic(),
+        // new UIEventSystemDiagnostic(),
+    };
 
     // Menambahkan Menu di bagian atas Unity
     [MenuItem("Tools/Linty Assistant Menu")]
@@ -71,7 +82,7 @@ public class MenuLinty : EditorWindow
         GUIStyle titleStyle = new GUIStyle(EditorStyles.boldLabel)
         {
             normal = { textColor = Color.white },
-            fontSize = 12
+            fontSize = 12,
         };
 
         GUILayout.BeginHorizontal();
@@ -123,18 +134,13 @@ public class MenuLinty : EditorWindow
                 fixedHeight = 28,
                 fixedWidth = 82,
                 alignment = TextAnchor.MiddleCenter,
-                normal = { 
-                    background = isActive ? activeTabTex : inactiveTabTex, 
-                    textColor = Color.white 
+                normal =
+                {
+                    background = isActive ? activeTabTex : inactiveTabTex,
+                    textColor = Color.white,
                 },
-                hover = { 
-                    background = activeTabTex, 
-                    textColor = Color.white 
-                },
-                active = { 
-                    background = activeTabTex, 
-                    textColor = new Color(0.9f, 0.9f, 0.9f) 
-                }
+                hover = { background = activeTabTex, textColor = Color.white },
+                active = { background = activeTabTex, textColor = new Color(0.9f, 0.9f, 0.9f) },
             };
 
             if (GUILayout.Button(tabNames[i], btnStyle))
@@ -159,16 +165,16 @@ public class MenuLinty : EditorWindow
             GUILayout.Space(8);
             GUILayout.BeginHorizontal();
             GUILayout.Space(12);
-            
+
             GUIStyle infoStyle = new GUIStyle(EditorStyles.label)
             {
                 normal = { textColor = Color.white },
                 fontSize = 11,
-                fontStyle = FontStyle.Bold
+                fontStyle = FontStyle.Bold,
             };
             GUILayout.Label("Mulai Pilih Object Di dalam Hierarchy Panelmu.", infoStyle);
             GUILayout.EndHorizontal();
-            
+
             return;
         }
 
@@ -177,29 +183,34 @@ public class MenuLinty : EditorWindow
         GUILayout.Space(12);
         GUILayout.Label($"Objek Terpilih: {selectedObj.name}", EditorStyles.boldLabel);
         GUILayout.EndHorizontal();
-        
+
         GUILayout.Space(8);
 
-        // Cek Komponen Rigidbody (3D)
-        Rigidbody rb = selectedObj.GetComponent<Rigidbody>();
-        if (rb != null)
+        // Loop semua rules secara otomatis!
+        foreach (var rule in diagnosticRules)
         {
-            DrawRigidbodyGuide(rb);
-        }
-        else
-        {
-            EditorGUILayout.HelpBox("Objek terpilih tidak memiliki komponen yang dipantau (misal: Rigidbody).", MessageType.Info);
+            if (rule.Evaluate(selectedObj))
+            {
+                rule.DrawDiagnosticUI(selectedObj);
+                GUILayout.Space(6);
+            }
         }
     }
 
     private void DrawGuideTab()
     {
-        EditorGUILayout.HelpBox("Halaman Guide: Tempat panduan penggunaan komponen.", MessageType.Info);
+        EditorGUILayout.HelpBox(
+            "Halaman Guide: Tempat panduan penggunaan komponen.",
+            MessageType.Info
+        );
     }
 
     private void DrawStructureTab()
     {
-        EditorGUILayout.HelpBox("Halaman Structure: Tempat mengelola struktur folder project.", MessageType.Info);
+        EditorGUILayout.HelpBox(
+            "Halaman Structure: Tempat mengelola struktur folder project.",
+            MessageType.Info
+        );
     }
 
     private void DrawSettingTab()
@@ -217,12 +228,16 @@ public class MenuLinty : EditorWindow
 
         // Gambar latar oranye
         EditorGUI.DrawRect(bannerRect, new Color(0.85f, 0.45f, 0.15f));
-        GUI.Label(bannerRect, $" ⚠️  {message}", new GUIStyle(EditorStyles.boldLabel)
-        {
-            normal = { textColor = Color.white },
-            fontSize = 12,
-            alignment = TextAnchor.MiddleLeft
-        });
+        GUI.Label(
+            bannerRect,
+            $" ⚠️  {message}",
+            new GUIStyle(EditorStyles.boldLabel)
+            {
+                normal = { textColor = Color.white },
+                fontSize = 12,
+                alignment = TextAnchor.MiddleLeft,
+            }
+        );
     }
 
     private void DrawRigidbodyGuide(Rigidbody rb)
@@ -230,7 +245,10 @@ public class MenuLinty : EditorWindow
         // 1. Dokumen / Penjelasan
         EditorGUILayout.BeginVertical(EditorStyles.helpBox);
         EditorGUILayout.LabelField("📘 Rigidbody Guide", EditorStyles.boldLabel);
-        EditorGUILayout.LabelField("Fungsi: Memberikan simulasi fisika 3D (gravitasi, massa, dan tabrakan). Berguna untuk melakukan Collision System.", EditorStyles.wordWrappedLabel);
+        EditorGUILayout.LabelField(
+            "Fungsi: Memberikan simulasi fisika 3D (gravitasi, massa, dan tabrakan). Berguna untuk melakukan Collision System.",
+            EditorStyles.wordWrappedLabel
+        );
         EditorGUILayout.EndVertical();
 
         GUILayout.Space(8);
@@ -238,7 +256,10 @@ public class MenuLinty : EditorWindow
         // 2. Smart Diagnostic & Fix
         if ((rb.constraints & RigidbodyConstraints.FreezeRotationZ) == 0)
         {
-            EditorGUILayout.HelpBox("⚠️ Warning: Freeze Rotation Z belum tercentang! Karakter bisa berguling/tumbang saat berjalan.", MessageType.Warning);
+            EditorGUILayout.HelpBox(
+                "⚠️ Warning: Freeze Rotation Z belum tercentang! Karakter bisa berguling/tumbang saat berjalan.",
+                MessageType.Warning
+            );
 
             if (GUILayout.Button("Fix Instantly (Freeze Rotation Z)", GUILayout.Height(30)))
             {
@@ -248,7 +269,10 @@ public class MenuLinty : EditorWindow
         }
         else
         {
-            EditorGUILayout.HelpBox("✅ Rigidbody dikonfigurasi dengan baik (Freeze Rotation Z Aktif).", MessageType.Info);
+            EditorGUILayout.HelpBox(
+                "✅ Rigidbody dikonfigurasi dengan baik (Freeze Rotation Z Aktif).",
+                MessageType.Info
+            );
         }
     }
     #endregion
