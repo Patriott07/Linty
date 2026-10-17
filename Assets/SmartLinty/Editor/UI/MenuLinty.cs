@@ -335,32 +335,26 @@ public class MenuLinty : EditorWindow
         {
             GUILayout.Space(5);
             
-            BoxCollider2D box2d = selectedObj.GetComponent<BoxCollider2D>();
             // Is Trigger Guide
             DrawGuideCard(
                 "Is Trigger",
                 "Menentukan apakah kotak kolider berfungsi sebagai pemicu kejadian (trigger) alih-alih penghalang fisik.",
                 ref isTriggerEffectVisible,
-                "1. When True : Kolider menjadi zona pemicu tembus pandang/tembus benda, tidak menahan objek lain.\n2. When False : Kolider berfungsi sebagai benda padat fisik murni yang menahan objek lain.",
-                showActualValue: true,
-                actualValueDisplay: box2d != null ? $"Is Trigger: {box2d.isTrigger}" : ""
+                "1. When True : Kolider menjadi zona pemicu tembus pandang/tembus benda, tidak menahan objek lain.\n2. When False : Kolider berfungsi sebagai benda padat fisik murni yang menahan objek lain."
             );
 
             GUILayout.Space(8);
 
             // Size Guide
-            // BoxCollider2D box2d = selectedObj.GetComponent<BoxCollider2D>();
             DrawGuideCard(
                 "Size",
                 "Menentukan lebar dan tinggi dari kotak kolider dalam satuan ruang lokal (local space).",
                 ref sizeEffectVisible,
-                "1. When Adjusted to Sprite : Menutupi seluruh area visual objek dengan pas.\n2. When Too Large/Small : Objek dapat mengalami masalah aneh seperti melayang.",
-                showActualValue: true,
-                actualValueDisplay: box2d != null ? $"Size: {box2d.size}" : ""
+                "1. When Adjusted to Sprite : Menutupi seluruh area visual objek dengan pas.\n2. When Too Large/Small : Objek dapat mengalami masalah aneh seperti melayang."
             );
         }
 
-        // GUILayout.Space(15);
+        GUILayout.Space(15);
 
         // 2. KELOMPOK RIGIDBODY 2D
         DrawComponentHeaderBox("🟢  Rigidbody 2D", ref showRigidbody2DGuide);
@@ -369,14 +363,11 @@ public class MenuLinty : EditorWindow
             GUILayout.Space(5);
 
             // Body Type Guide
-            Rigidbody2D rb2d = selectedObj.GetComponent<Rigidbody2D>();
             DrawGuideCard(
                 "Body Type",
                 "Menentukan jenis perilaku fisika dasar objek apakah bergerak bebas, statis, atau kinematik.",
                 ref bodyTypeEffectVisible,
-                "1. When Dynamic : Objek aktif terpengaruh gravitasi & gaya luar.\n2. When Kinematic : Digerakkan manual lewat skrip/animasi.\n3. When Static : Dibekukan permanen sebagai penghalang.",
-                showActualValue: false,
-                actualValueDisplay: rb2d != null ? $"Body Type: {rb2d.bodyType}" : "..."
+                "1. When Dynamic : Objek aktif terpengaruh gravitasi & gaya luar.\n2. When Kinematic : Digerakkan manual lewat skrip/animasi.\n3. When Static : Dibekukan permanen sebagai penghalang."
             );
         }
 
@@ -435,7 +426,7 @@ public class MenuLinty : EditorWindow
         GUI.backgroundColor = oldBg;
     }
 
-private void DrawGuideCard(string propertyName, string oneLineDesc, ref bool isEffectShown, string effectDetailText, bool showActualValue = false, string actualValueDisplay = "")
+private void DrawGuideCard(string propertyName, string oneLineDesc, ref bool isEffectShown, string effectDetailText)
     {
         EditorGUILayout.BeginVertical(EditorStyles.helpBox);
         
@@ -481,15 +472,10 @@ private void DrawGuideCard(string propertyName, string oneLineDesc, ref bool isE
             wordWrap = true
         };
 
-        string displayText;
-        if (showActualValue) {
-            displayText = "Current Effect :\n" + actualValueDisplay;
-        } else {
-            displayText = isEffectShown ? $"Current Effect :\n{effectDetailText}" : "Current Effect : ...";
-        }
+        string displayText = isEffectShown ? $"Current Effect :\n{effectDetailText}" : "Current Effect : ...";
 
         // PERBAIKAN: Tinggikan minimal box menjadi 95f agar teks panjang muat dengan sempurna tanpa terpotong
-        float calculatedHeight = showActualValue ? 95f : (isEffectShown ? 95f : 26f);
+        float calculatedHeight = isEffectShown ? 95f : 26f;
 
         // Ambil rect untuk kartu utama
         Rect cardRect = EditorGUILayout.GetControlRect(false, calculatedHeight);
