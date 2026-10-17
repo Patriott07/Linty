@@ -1,13 +1,14 @@
 using System.Collections;
 using System.Collections.Generic;
 using Custom.Interface;
+using Unity.VisualScripting;
 using UnityEditor;
 using UnityEngine;
 
 public class MenuLinty : EditorWindow
 {
-    // Indeks tab yang sedang aktif (0: Diagnosa, 1: Guide, 2: Structure, 3: Setting)
     private int selectedTab = 0;
+    private GameObject selectedObj;
     private Texture2D activeTabTex;
     private Texture2D inactiveTabTex;
     private Texture2D normal_text,
@@ -15,15 +16,19 @@ public class MenuLinty : EditorWindow
         active_text;
     private readonly string[] tabNames = { "Diagnosa", "Guide", "Structure", "Setting" };
 
-    private List<IDiagnosticRule> diagnosticRules = new List<IDiagnosticRule>()
-    {
-        // new TransformDiagnostic(),
-        // new Rigidbody2DDiagnostic(),
-        // new BoxCollider2DDiagnostic(),
-        // new UIEventSystemDiagnostic(),
-    };
+    // Status state untuk Tab Guide
+    private bool showBoxCollider2DGuide = true;
+    private bool showRigidbody2DGuide = true;
 
-    // Menambahkan Menu di bagian atas Unity
+    private bool isTriggerEffectVisible = false;
+    private bool sizeEffectVisible = false;
+    private bool bodyTypeEffectVisible = false;
+
+    private Vector2 guideScrollPos;
+    private Vector2 diagScrollPos;
+
+    private List<IDiagnosticRule> diagnosticRules = new List<IDiagnosticRule>();
+
     [MenuItem("Tools/Linty Assistant Menu")]
     public static void ShowWindow()
     {
@@ -31,20 +36,19 @@ public class MenuLinty : EditorWindow
         window.minSize = new Vector2(380, 500);
     }
 
-    // Pastikan tekstur ini di-generate (bisa ditaruh di OnEnable atau dipanggil pas dibutuhkan)
     private void InitTabTextures()
     {
         if (activeTabTex == null)
         {
             activeTabTex = new Texture2D(1, 1);
-            activeTabTex.SetPixel(0, 0, GenerateColorByHexa255(197, 104, 47)); // Warna Aktif (Kuning/Oranye Linty)
+            activeTabTex.SetPixel(0, 0, GenerateColorByHexa255(197, 104, 47)); 
             activeTabTex.Apply();
         }
 
         if (inactiveTabTex == null)
         {
             inactiveTabTex = new Texture2D(1, 1);
-            inactiveTabTex.SetPixel(0, 0, GenerateColorByHexa255(18, 18, 18)); // Warna Non-Aktif (Abu-abu gelap rapi)
+            inactiveTabTex.SetPixel(0, 0, GenerateColorByHexa255(18, 18, 18)); 
             inactiveTabTex.Apply();
         }
 
@@ -76,19 +80,19 @@ public class MenuLinty : EditorWindow
     private void OnEnable()
     {
         InitTabTextures();
-        // Daftarkan listener agar UI mendeteksi perubahan seleksi di Hierarchy
+        isTriggerEffectVisible = false;
+        sizeEffectVisible = false;
+        bodyTypeEffectVisible = false;
         Selection.selectionChanged += OnSelectionChanged;
     }
 
     private void OnDisable()
     {
-        // Lepas listener agar tidak memicu memory leak
         Selection.selectionChanged -= OnSelectionChanged;
     }
 
     private void OnSelectionChanged()
     {
-        // Minta Unity menggambar ulang UI saat ada objek baru dipilih
         Repaint();
     }
 
@@ -101,7 +105,6 @@ public class MenuLinty : EditorWindow
 
         GUILayout.Space(12);
 
-        // 2. Judul Tab Navigasi
         GUIStyle titleStyle = new GUIStyle(EditorStyles.boldLabel)
         {
             normal = { textColor = Color.white },
@@ -115,12 +118,10 @@ public class MenuLinty : EditorWindow
 
         GUILayout.Space(6);
 
-        // 3. Render Tombol Navigasi Tab
         DrawTabNavigation();
 
         GUILayout.Space(12);
 
-        // 4. Render Konten Sesuai Tab yang Dipilih
         switch (selectedTab)
         {
             case 0:
@@ -149,7 +150,6 @@ public class MenuLinty : EditorWindow
         {
             bool isActive = (i == selectedTab);
 
-            // Styling tombol menggunakan background tekstur kustom murni (bebas dari tint bawaan Unity)
             GUIStyle btnStyle = new GUIStyle(GUI.skin.button)
             {
                 fontSize = 12,
@@ -178,9 +178,9 @@ public class MenuLinty : EditorWindow
     #region Tab Content Renderers
     private void DrawDiagnosaTab()
     {
-        GameObject selectedObj = Selection.activeGameObject;
+        diagScrollPos = EditorGUILayout.BeginScrollView(diagScrollPos);
+        selectedObj = Selection.activeGameObject;
 
-        // KONDISI 1: Tidak ada GameObject yang dipilih di Hierarchy
         if (selectedObj == null)
         {
             DrawWarningBanner("Tidak ada Component ditemukan.");
@@ -198,6 +198,7 @@ public class MenuLinty : EditorWindow
             GUILayout.Label("Mulai Pilih Object Di dalam Hierarchy Panelmu.", infoStyle);
             GUILayout.EndHorizontal();
 
+            EditorGUILayout.EndScrollView();
             return;
         }
 
@@ -215,7 +216,7 @@ public class MenuLinty : EditorWindow
         GUILayout.Space(6);
 
         // 2. Bagian Diagnosa Komponen
-        DrawComponentDiagnosisSection(selectedObj);
+        // DrawComponentDiagnosisSection(selectedObj);
 
         // 3. Tombol Aksi Massal di paling bawah
         GUIStyle fixAllBtnStyle = new GUIStyle(GUI.skin.button)
@@ -277,172 +278,115 @@ public class MenuLinty : EditorWindow
         GUILayout.Space(12);
         GUILayout.EndHorizontal();
 
-        GUILayout.BeginHorizontal();
-        GUILayout.Space(12);
-        // showDesc = GUILayout.Toggle(showDesc, "Show Desc", GUILayout.Width(80));
-        // GUILayout.FlexibleSpace();
-        enable = GUILayout.Toggle(enable, "Enable Diagnostic This Object", GUILayout.Width(position.width - 24));
-        GUILayout.EndHorizontal();
-
-         GUILayout.Space(8);
-    }
-
-    private void DrawComponentDiagnosisSection(GameObject obj)
-    {
-        // Hitung komponen bermasalah
-        int errorCount = 0;
-        bool hasRigidbody = obj.TryGetComponent<Rigidbody>(out var rb);
-        bool hasBoxCollider = obj.TryGetComponent<BoxCollider>(out var bc);
-        bool hasMeshCollider = obj.TryGetComponent<MeshCollider>(out var mc);
-        bool hasAnimator = obj.TryGetComponent<Animator>(out var anim);
-
-        // Rigidbody check
-        if (hasRigidbody && (rb.constraints & RigidbodyConstraints.FreezeRotationZ) == 0)
-            errorCount++;
-        // BoxCollider check
-        if (hasBoxCollider && (bc.size == Vector3.zero || bc.isTrigger))
-            errorCount++;
-        // MeshCollider check
-        if (hasMeshCollider && (!mc.convex || mc.isTrigger))
-            errorCount++;
-        // Animator check
-        if (hasAnimator && anim.runtimeAnimatorController == null)
-            errorCount++;
-
-        // Warning banner ringkasan
-        if (errorCount > 0)
+        // Fallback Diagnosa langsung jika diagnosticRules belum diisi
+        bool evaluatedAny = false;
+        foreach (var rule in diagnosticRules)
         {
-            GUILayout.BeginHorizontal();
-            GUILayout.Space(12);
-            Rect bannerRect = EditorGUILayout.GetControlRect(false, 28);
-            bannerRect.x += 10;
-            bannerRect.width -= 20;
-            EditorGUI.DrawRect(bannerRect, new Color(0.85f, 0.45f, 0.15f));
-            GUI.Label(
-                bannerRect,
-                $" ⚠️  {errorCount} Component Mistake Setting",
-                new GUIStyle(EditorStyles.boldLabel)
-                {
-                    normal = { textColor = Color.white },
-                    fontSize = 12,
-                    alignment = TextAnchor.MiddleLeft,
-                }
-            );
-            GUILayout.EndHorizontal();
-            GUILayout.Space(6);
+            if (rule.Evaluate(selectedObj))
+            {
+                rule.DrawDiagnosticUI(selectedObj);
+                evaluatedAny = true;
+                GUILayout.Space(6);
+            }
         }
 
-        // Daftar komponen dengan dot indicator
-        // Rigidbody
-        DrawComponentRow(
-            "Rigidbody",
-            hasRigidbody,
-            hasRigidbody && (rb.constraints & RigidbodyConstraints.FreezeRotationZ) == 0,
-            "Freeze Rotation Z belum diaktifkan",
-            rb
-        );
-
-        // Box Collider
-        DrawComponentRow(
-            "Box Collider",
-            hasBoxCollider,
-            hasBoxCollider && bc.size != Vector3.zero && !bc.isTrigger,
-            "Collider size valid",
-            bc
-        );
-
-        // Mesh Collider
-        DrawComponentRow(
-            "Mesh Collider",
-            hasMeshCollider,
-            hasMeshCollider && mc.convex && !mc.isTrigger,
-            "Mesh Collider konfigurasikan dengan baik",
-            mc
-        );
-
-        // Animator
-        DrawComponentRow(
-            "Animator",
-            hasAnimator,
-            hasAnimator && anim.runtimeAnimatorController != null,
-            "Animator Controller terassign",
-            anim
-        );
-    }
-
-    private void DrawComponentRow(
-        string componentName,
-        bool present,
-        bool isHealthy,
-        string message,
-        Component comp
-    )
-    {
-        Color dotColor = isHealthy ? new Color(0.2f, 0.8f, 0.2f) : new Color(0.9f, 0.3f, 0.1f);
-        Color textColor = isHealthy ? Color.white : new Color(0.9f, 0.9f, 0.9f);
-
-        GUILayout.BeginHorizontal();
-        GUILayout.Space(12);
-
-        // Dot indicator (lingkaran siku-siku)
-        Rect dotRect = GUILayoutUtility.GetRect(12, 12);
-        EditorGUI.DrawRect(new Rect(dotRect.x, dotRect.center.y - 6, 12, 12), new Color(0, 0, 0));
-        EditorGUI.DrawRect(new Rect(dotRect.x + 1, dotRect.center.y - 5, 10, 10), dotColor);
-
-        // Component name
-        GUILayout.Label(componentName, GUILayout.Width(100));
-
-        // Status teks
-        GUILayout.Label(isHealthy ? "✓" : "⚠", GUILayout.Width(20));
-
-        // Detail message & Apply Fix button
-        GUILayout.Label(message, GUILayout.Width(150));
-        if (GUILayout.Button("Apply Fix", GUILayout.Width(80)))
+        // Jika list rule kosong, berikan diagnosa standar untuk Rigidbody2D & BoxCollider2D
+        if (!evaluatedAny)
         {
-            // Apply fix logic for this component
-            Undo.RecordObject(comp, $"Fix {componentName}");
-            if (comp is Rigidbody rb)
-                rb.constraints |= RigidbodyConstraints.FreezeRotationZ;
-            if (comp is BoxCollider bc)
+            Rigidbody2D rb2d = selectedObj.GetComponent<Rigidbody2D>();
+            BoxCollider2D box2d = selectedObj.GetComponent<BoxCollider2D>();
+
+            if (rb2d == null && box2d == null)
             {
-                if (bc.isTrigger)
-                    bc.isTrigger = false;
-                if (bc.size == Vector3.zero)
-                    bc.size = new Vector3(1, 1, 1);
+                EditorGUILayout.HelpBox("Objek ini tidak memiliki komponen Rigidbody 2D atau Box Collider 2D untuk didiagnosa.", MessageType.Info);
             }
-            if (comp is MeshCollider mc)
+
+            if (rb2d != null)
             {
-                if (!mc.convex)
-                    mc.convex = true;
-                if (mc.isTrigger)
-                    mc.isTrigger = false;
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                EditorGUILayout.LabelField("🟢 Rigidbody 2D Terdeteksi", EditorStyles.boldLabel);
+                EditorGUILayout.LabelField($"Body Type: {rb2d.bodyType}", EditorStyles.label);
+                EditorGUILayout.EndVertical();
+                GUILayout.Space(5);
             }
-            if (comp is Animator anim)
+
+            if (box2d != null)
             {
-                if (anim.runtimeAnimatorController == null)
-                    anim.runtimeAnimatorController = null;
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                EditorGUILayout.LabelField("📦 Box Collider 2D Terdeteksi", EditorStyles.boldLabel);
+                EditorGUILayout.LabelField($"Is Trigger: {box2d.isTrigger}", EditorStyles.label);
+                EditorGUILayout.LabelField($"Size: {box2d.size}", EditorStyles.label);
+                EditorGUILayout.EndVertical();
             }
-            Repaint();
         }
 
-        GUILayout.EndHorizontal();
-        GUILayout.Space(4);
+        EditorGUILayout.EndScrollView();
     }
 
     private void DrawGuideTab()
     {
-        EditorGUILayout.HelpBox(
-            "Halaman Guide: Tempat panduan penggunaan komponen.",
-            MessageType.Info
-        );
+        guideScrollPos = EditorGUILayout.BeginScrollView(guideScrollPos);
+
+        GUILayout.Space(5);
+
+        // 1. KELOMPOK BOX COLLIDER 2D
+        DrawComponentHeaderBox("📦  Box Collider 2D", ref showBoxCollider2DGuide);
+        if (showBoxCollider2DGuide)
+        {
+            GUILayout.Space(5);
+            
+            BoxCollider2D box2d = selectedObj.GetComponent<BoxCollider2D>();
+            // Is Trigger Guide
+            DrawGuideCard(
+                "Is Trigger",
+                "Menentukan apakah kotak kolider berfungsi sebagai pemicu kejadian (trigger) alih-alih penghalang fisik.",
+                ref isTriggerEffectVisible,
+                "1. When True : Kolider menjadi zona pemicu tembus pandang/tembus benda, tidak menahan objek lain.\n2. When False : Kolider berfungsi sebagai benda padat fisik murni yang menahan objek lain.",
+                showActualValue: true,
+                actualValueDisplay: box2d != null ? $"Is Trigger: {box2d.isTrigger}" : ""
+            );
+
+            GUILayout.Space(8);
+
+            // Size Guide
+            // BoxCollider2D box2d = selectedObj.GetComponent<BoxCollider2D>();
+            DrawGuideCard(
+                "Size",
+                "Menentukan lebar dan tinggi dari kotak kolider dalam satuan ruang lokal (local space).",
+                ref sizeEffectVisible,
+                "1. When Adjusted to Sprite : Menutupi seluruh area visual objek dengan pas.\n2. When Too Large/Small : Objek dapat mengalami masalah aneh seperti melayang.",
+                showActualValue: true,
+                actualValueDisplay: box2d != null ? $"Size: {box2d.size}" : ""
+            );
+        }
+
+        // GUILayout.Space(15);
+
+        // 2. KELOMPOK RIGIDBODY 2D
+        DrawComponentHeaderBox("🟢  Rigidbody 2D", ref showRigidbody2DGuide);
+        if (showRigidbody2DGuide)
+        {
+            GUILayout.Space(5);
+
+            // Body Type Guide
+            Rigidbody2D rb2d = selectedObj.GetComponent<Rigidbody2D>();
+            DrawGuideCard(
+                "Body Type",
+                "Menentukan jenis perilaku fisika dasar objek apakah bergerak bebas, statis, atau kinematik.",
+                ref bodyTypeEffectVisible,
+                "1. When Dynamic : Objek aktif terpengaruh gravitasi & gaya luar.\n2. When Kinematic : Digerakkan manual lewat skrip/animasi.\n3. When Static : Dibekukan permanen sebagai penghalang.",
+                showActualValue: false,
+                actualValueDisplay: rb2d != null ? $"Body Type: {rb2d.bodyType}" : "..."
+            );
+        }
+
+        GUILayout.Space(10);
+        EditorGUILayout.EndScrollView();
     }
 
     private void DrawStructureTab()
     {
-        EditorGUILayout.HelpBox(
-            "Halaman Structure: Tempat mengelola struktur folder project.",
-            MessageType.Info
-        );
+        EditorGUILayout.HelpBox("Halaman Structure: Tempat mengelola struktur folder project.", MessageType.Info);
     }
 
     private void DrawSettingTab()
@@ -458,7 +402,6 @@ public class MenuLinty : EditorWindow
         bannerRect.x += 10;
         bannerRect.width -= 20;
 
-        // Gambar latar oranye
         EditorGUI.DrawRect(bannerRect, new Color(0.85f, 0.45f, 0.15f));
         GUI.Label(
             bannerRect,
@@ -472,40 +415,105 @@ public class MenuLinty : EditorWindow
         );
     }
 
-    private void DrawRigidbodyGuide(Rigidbody rb)
+    private void DrawComponentHeaderBox(string title, ref bool foldoutStatus)
     {
-        // 1. Dokumen / Penjelasan
+        GUIStyle headerStyle = new GUIStyle(EditorStyles.toolbarButton)
+        {
+            alignment = TextAnchor.MiddleLeft,
+            fontStyle = FontStyle.Bold,
+            fontSize = 11,
+            normal = { textColor = Color.white }
+        };
+
+        Color oldBg = GUI.backgroundColor;
+        GUI.backgroundColor = new Color(0.28f, 0.28f, 0.28f);
+        
+        if (GUILayout.Button($" {(foldoutStatus ? "▼" : "▶")}  {title}", headerStyle, GUILayout.Height(24)))
+        {
+            foldoutStatus = !foldoutStatus;
+        }
+        GUI.backgroundColor = oldBg;
+    }
+
+private void DrawGuideCard(string propertyName, string oneLineDesc, ref bool isEffectShown, string effectDetailText, bool showActualValue = false, string actualValueDisplay = "")
+    {
         EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-        EditorGUILayout.LabelField("📘 Rigidbody Guide", EditorStyles.boldLabel);
-        EditorGUILayout.LabelField(
-            "Fungsi: Memberikan simulasi fisika 3D (gravitasi, massa, dan tabrakan). Berguna untuk melakukan Collision System.",
-            EditorStyles.wordWrappedLabel
-        );
+        
+        // Baris Atas: Nama Property & Tombol "Tell Me More"
+        GUILayout.BeginHorizontal();
+        GUILayout.Space(3);
+        GUIStyle propNameStyle = new GUIStyle(EditorStyles.boldLabel) { normal = { textColor = Color.white } };
+        GUILayout.Label(propertyName, propNameStyle);
+        
+        GUILayout.FlexibleSpace();
+        
+        GUIStyle linkStyle = new GUIStyle(EditorStyles.label) 
+        { 
+            // PERBAIKAN: Menggunakan 'new Color(...)' yang benar
+            normal = { textColor = new Color(0.4f, 0.8f, 0.4f) }, 
+            // fontStyle = FontStyle.Bold,
+            alignment = TextAnchor.MiddleRight,
+            fontSize = 12,
+            padding = new RectOffset(0, 12, 0, 0)
+        };
+        if (GUILayout.Button("Tell Me More", linkStyle, GUILayout.Width(position.width- 230))) { }
+        GUILayout.EndHorizontal();
+
+        GUILayout.Space(3);
+
+        // Deskripsi Singkat
+        GUIStyle descStyle = new GUIStyle(EditorStyles.wordWrappedLabel) 
+        { 
+            normal = { textColor = new Color(0.8f, 0.8f, 0.8f) }, 
+            fontSize = 10 
+        };
+
+        GUILayout.Label(oneLineDesc, descStyle);
+
+        // GUILayout.Space(3);
+
+        // Styling untuk teks di dalam kotak hijau
+        GUIStyle greenTextStyle = new GUIStyle(EditorStyles.label)
+        {
+            normal = { textColor = Color.black },
+            fontSize = 9,
+            fontStyle = FontStyle.Bold,
+            wordWrap = true
+        };
+
+        string displayText;
+        if (showActualValue) {
+            displayText = "Current Effect :\n" + actualValueDisplay;
+        } else {
+            displayText = isEffectShown ? $"Current Effect :\n{effectDetailText}" : "Current Effect : ...";
+        }
+
+        // PERBAIKAN: Tinggikan minimal box menjadi 95f agar teks panjang muat dengan sempurna tanpa terpotong
+        float calculatedHeight = showActualValue ? 95f : (isEffectShown ? 95f : 26f);
+
+        // Ambil rect untuk kartu utama
+        Rect cardRect = EditorGUILayout.GetControlRect(false, calculatedHeight);
+        
+        // Background gelap kartu
+        // EditorGUI.DrawRect(cardRect, new Color(0.15f, 0.15f, 0.15f));
+
+        // Kotak Hijau Muda
+        Rect greenBoxRect = new Rect(cardRect.x + 3 , cardRect.y + 4, cardRect.width - 40, cardRect.height - 8);
+        EditorGUI.DrawRect(greenBoxRect, new Color(0.72f, 0.95f, 0.35f)); 
+
+        // Render Teks di dalam kotak hijau dengan margin aman
+        Rect textRect = new Rect(greenBoxRect.x + 6, greenBoxRect.y + 6, greenBoxRect.width - 12, greenBoxRect.height - 12);
+        GUI.Label(textRect, displayText, greenTextStyle);
+
+        // Tombol Ikon Mata (Eye Toggle) di sebelah kanan kotak hijau
+        Rect eyeBtnRect = new Rect(cardRect.x + cardRect.width - 32, cardRect.y + (cardRect.height / 2) - 10, 26, 20);
+        GUIStyle eyeStyle = new GUIStyle(GUI.skin.button) { fontSize = 11 };
+        if (GUI.Button(eyeBtnRect, "👁️", eyeStyle))
+        {
+            isEffectShown = !isEffectShown;
+        }
+
         EditorGUILayout.EndVertical();
-
-        GUILayout.Space(8);
-
-        // 2. Smart Diagnostic & Fix
-        if ((rb.constraints & RigidbodyConstraints.FreezeRotationZ) == 0)
-        {
-            EditorGUILayout.HelpBox(
-                "⚠️ Warning: Freeze Rotation Z belum tercentang! Karakter bisa berguling/tumbang saat berjalan.",
-                MessageType.Warning
-            );
-
-            if (GUILayout.Button("Fix Instantly (Freeze Rotation Z)", GUILayout.Height(30)))
-            {
-                Undo.RecordObject(rb, "Fix Rigidbody Rotation");
-                rb.constraints |= RigidbodyConstraints.FreezeRotationZ;
-            }
-        }
-        else
-        {
-            EditorGUILayout.HelpBox(
-                "✅ Rigidbody dikonfigurasi dengan baik (Freeze Rotation Z Aktif).",
-                MessageType.Info
-            );
-        }
     }
     #endregion
 }
