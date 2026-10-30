@@ -5,17 +5,17 @@ public class WelcomeLintyPopup : EditorWindow
 {
     private static Texture2D mascotTexture;
 
-    Color GenerateColorByHexa255(float r, float g, float b)
-    {
-        return new Color(r / 255, g / 255, b / 255);
-    }
+    // Color GenerateColorByHexa255(float r, float g, float b)
+    // {
+    //     return new Color(r / 255, g / 255, b / 255);
+    // }
 
     [InitializeOnLoadMethod]
     static void ShowOnFirstLoad()
     {
-        if (!SessionState.GetBool("SmartLinty_Welcomed", false))
+        if (!EditorPrefs.GetBool("SmartLinty_Welcomed", false))
         {
-            SessionState.SetBool("SmartLinty_Welcomed", true);
+            EditorPrefs.SetBool("SmartLinty_Welcomed", true);
             EditorApplication.delayCall += OpenWindow;
         }
     }
