@@ -12,6 +12,7 @@ public class FolderStructureLintyPopup : EditorWindow
     private bool createScripts = true;
     private bool createPostProcessing = true;
     private bool createGenreSpecific = true;
+    private Dictionary<string, bool> folderStates = new Dictionary<string, bool>();
 
     private int selectedGenreIndex = 0;
     private int selectedProjectTypeIndex = 0;
@@ -57,16 +58,48 @@ public class FolderStructureLintyPopup : EditorWindow
         window.ShowUtility();
     }
 
+    private void EnsureFolderStates(string[] preset)
+    {
+        if (folderStates == null)
+        {
+            folderStates = new Dictionary<string, bool>();
+        }
+
+        foreach (string folder in preset)
+        {
+            if (!folderStates.ContainsKey(folder))
+            {
+                folderStates[folder] = true;
+            }
+        }
+    }
+
     private void OnEnable()
     {
         // Tekstur rounded hijau untuk tombol "Make it"
-        limeTex = MakeRoundedRectTex(110, 36, 0, new Color(0.38f, 0.62f, 0.2f));
+        if (limeTex == null)
+        {
+            limeTex = MakeRoundedRectTex(110, 36, 0, new Color(0.38f, 0.62f, 0.2f));
+        }
 
         // Baca pilihan dari popup sebelumnya (ProjectSetupLintyPopup)
         string savedGenre = EditorPrefs.GetString("SmartLinty_Genre", "");
         string savedType = EditorPrefs.GetString("SmartLinty_ProjectType", "");
-        selectedGenreIndex = IndexOf(genreOptions, savedGenre);
-        selectedProjectTypeIndex = IndexOf(projectTypeOptions, savedType);
+        selectedGenreIndex = Mathf.Clamp(IndexOf(genreOptions, savedGenre), 0, genreOptions.Length - 1);
+        selectedProjectTypeIndex = Mathf.Clamp(IndexOf(projectTypeOptions, savedType), 0, projectTypeOptions.Length - 1);
+
+        // Inisialisasi folder states
+        string[] preset = GetStructureFor(genreOptions[selectedGenreIndex], projectTypeOptions[selectedProjectTypeIndex]);
+        EnsureFolderStates(preset);
+    }
+
+    private void OnDestroy()
+    {
+        if (limeTex != null)
+        {
+            DestroyImmediate(limeTex);
+            limeTex = null;
+        }
     }
 
     private void OnGUI()
@@ -98,12 +131,6 @@ public class FolderStructureLintyPopup : EditorWindow
             wordWrap = true,
             normal = { textColor = new Color(0.92f, 0.52f, 0.2f) },
         };
-        GUIStyle infoStyle = new GUIStyle(EditorStyles.label)
-        {
-            fontSize = 11,
-            wordWrap = true,
-            normal = { textColor = new Color(0.65f, 0.65f, 0.65f) },
-        };
 
         GUILayout.Label("Thanks for filling project detail", titleStyle);
         GUILayout.Space(4);
@@ -117,14 +144,18 @@ public class FolderStructureLintyPopup : EditorWindow
 
         scrollPos = GUILayout.BeginScrollView(scrollPos, GUILayout.Width(availableWidth + 10), GUILayout.Height(380));
 
-        // --- Pilihan Genre & Type (bisa override di sini) ---
-        selectedGenreIndex = EditorGUILayout.Popup("Genre Game", selectedGenreIndex, genreOptions);
-        selectedProjectTypeIndex = EditorGUILayout.Popup("Project Type", selectedProjectTypeIndex, projectTypeOptions);
+        // --- Informasi Preset dari langkah sebelumnya ---
+        selectedGenreIndex = Mathf.Clamp(selectedGenreIndex, 0, genreOptions.Length - 1);
+        selectedProjectTypeIndex = Mathf.Clamp(selectedProjectTypeIndex, 0, projectTypeOptions.Length - 1);
 
-        GUILayout.Space(6);
+        GUIStyle presetBadgeStyle = new GUIStyle(EditorStyles.boldLabel)
+        {
+            fontSize = 12,
+            normal = { textColor = new Color(0.7f, 0.95f, 0.3f) },
+        };
         GUILayout.Label(
-            $"Preset aktif: {genreOptions[selectedGenreIndex]} + {projectTypeOptions[selectedProjectTypeIndex]}",
-            infoStyle
+            $"Preset: {genreOptions[selectedGenreIndex]} • {projectTypeOptions[selectedProjectTypeIndex]}",
+            presetBadgeStyle
         );
 
         GUILayout.Space(10);
@@ -167,9 +198,16 @@ public class FolderStructureLintyPopup : EditorWindow
                 genreOptions[selectedGenreIndex],
                 projectTypeOptions[selectedProjectTypeIndex]
             );
-            foreach (string folder in preset)
+            EnsureFolderStates(preset);
+
+            for (int i = 0; i < preset.Length; i++)
             {
-                GUILayout.Label("• " + folder, infoStyle);
+                string folder = preset[i];
+                folderStates[folder] = EditorGUILayout.Toggle(
+                    "• " + folder,
+                    folderStates[folder],
+                    toggleStyle
+                );
             }
         }
 
@@ -178,6 +216,11 @@ public class FolderStructureLintyPopup : EditorWindow
 
         // Baris Bawah: Tombol "Make it" & Link "Tidak Sekarang"
         GUILayout.BeginHorizontal();
+
+        if (limeTex == null)
+        {
+            limeTex = MakeRoundedRectTex(110, 36, 0, new Color(0.38f, 0.62f, 0.2f));
+        }
 
         GUIStyle makeItButtonStyle = new GUIStyle(GUI.skin.button)
         {
@@ -196,9 +239,6 @@ public class FolderStructureLintyPopup : EditorWindow
             )
         )
         {
-            // Simpan kembali override genre/type agar konsisten antar popup
-            EditorPrefs.SetString("SmartLinty_Genre", genreOptions[selectedGenreIndex]);
-            EditorPrefs.SetString("SmartLinty_ProjectType", projectTypeOptions[selectedProjectTypeIndex]);
             CreateSelectedFolders();
             Close();
         }
@@ -251,12 +291,20 @@ public class FolderStructureLintyPopup : EditorWindow
 
         if (createGenreSpecific)
         {
-            folders.AddRange(
-                GetStructureFor(
-                    genreOptions[selectedGenreIndex],
-                    projectTypeOptions[selectedProjectTypeIndex]
-                )
+            string[] preset = GetStructureFor(
+                genreOptions[selectedGenreIndex],
+                projectTypeOptions[selectedProjectTypeIndex]
             );
+            EnsureFolderStates(preset);
+
+            for (int i = 0; i < preset.Length; i++)
+            {
+                string folder = preset[i];
+                if (folderStates.TryGetValue(folder, out bool isChecked) && isChecked)
+                {
+                    folders.Add(folder);
+                }
+            }
         }
 
         foreach (string folder in folders)
