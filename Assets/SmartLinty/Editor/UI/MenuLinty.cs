@@ -24,7 +24,14 @@ public class MenuLinty : EditorWindow
     private Texture2D normal_text,
         hover_text,
         active_text;
-    private readonly string[] tabNames = { "Diagnosa", "Guide", "Structure", "Setting" };
+    private readonly string[] tabNames =
+    {
+        "Diagnosa",
+        "Guide",
+        "Structure",
+        "File Relocator",
+        "Setting"
+    };
 
     // Status state untuk Tab Guide
     private bool showBoxCollider2DGuide = false;
@@ -45,6 +52,10 @@ public class MenuLinty : EditorWindow
 
     private Vector2 guideScrollPos;
     private Vector2 diagScrollPos;
+    private Vector2 structureScrollPos;
+    private Vector2 structureFolderListScrollPos;
+    private int expandedStructureFolderIndex = 0;
+    private FileRelocatorTabRenderer fileRelocatorRenderer;
 
     private List<IDiagnosticRule> diagnosticRules = new List<IDiagnosticRule>();
 
@@ -113,6 +124,7 @@ public class MenuLinty : EditorWindow
     private void OnEnable()
     {
         InitTabTextures();
+        fileRelocatorRenderer = new FileRelocatorTabRenderer();
         isTriggerEffectVisible = false;
         sizeEffectVisible = false;
         bodyTypeEffectVisible = false;
@@ -167,6 +179,9 @@ public class MenuLinty : EditorWindow
                 DrawStructureTab();
                 break;
             case 3:
+                DrawFileRelocatorTab();
+                break;
+            case 4:
                 DrawSettingTab();
                 break;
         }
@@ -188,7 +203,7 @@ public class MenuLinty : EditorWindow
                 fontSize = 12,
                 fontStyle = FontStyle.Bold,
                 fixedHeight = 28,
-                fixedWidth = (position.width / 4) - 7,
+                fixedWidth = (position.width / tabNames.Length) - 7,
                 alignment = TextAnchor.MiddleCenter,
                 normal =
                 {
@@ -640,10 +655,208 @@ public class MenuLinty : EditorWindow
 
     private void DrawStructureTab()
     {
-        EditorGUILayout.HelpBox(
-            "Halaman Structure: Tempat mengelola struktur folder project.",
-            MessageType.Info
+        List<string> createdFolders = LoadCreatedFolders();
+        GUIStyle titleStyle = new GUIStyle(EditorStyles.boldLabel)
+        {
+            fontSize = 18,
+            normal = { textColor = new Color(0.87f, 0.87f, 0.87f) }
+        };
+        GUIStyle orangeStyle = new GUIStyle(EditorStyles.boldLabel)
+        {
+            fontSize = 11,
+            wordWrap = true,
+            normal = { textColor = new Color(0.95f, 0.47f, 0.16f) }
+        };
+        GUIStyle mutedStyle = new GUIStyle(EditorStyles.label)
+        {
+            fontSize = 11,
+            wordWrap = true,
+            normal = { textColor = new Color(0.68f, 0.68f, 0.68f) }
+        };
+        GUIStyle itemStyle = new GUIStyle(EditorStyles.label)
+        {
+            fontSize = 12,
+            normal = { textColor = new Color(0.90f, 0.90f, 0.90f) }
+        };
+
+        structureScrollPos = EditorGUILayout.BeginScrollView(structureScrollPos);
+        GUILayout.Space(8);
+        GUILayout.BeginHorizontal();
+        GUILayout.Space(12);
+        GUILayout.BeginVertical(GUILayout.Width(Mathf.Max(220, position.width - 36)));
+
+        GUILayout.Label("Project Structure", titleStyle);
+        GUILayout.Space(5);
+        GUILayout.Label(
+            "Informasi folder yang berhasil dibuat dari preset project sebelumnya.",
+            orangeStyle
         );
+
+        string preset = EditorPrefs.GetString("SmartLinty_LastFolderPreset", "");
+        if (!string.IsNullOrEmpty(preset))
+        {
+            GUILayout.Space(7);
+            GUILayout.Label($"Preset: {preset}", mutedStyle);
+        }
+
+        GUILayout.Space(10);
+        if (createdFolders.Count == 0)
+        {
+            EditorGUILayout.HelpBox(
+                "Belum ada hasil Folder Maker yang tersimpan. Jalankan Folder Setup terlebih dahulu.",
+                MessageType.Info
+            );
+
+            if (GUILayout.Button("Open Folder Setup", GUILayout.Height(30)))
+                FolderStructureLintyPopup.OpenWindow();
+        }
+        else
+        {
+            GUILayout.Label(
+                $"{createdFolders.Count} folder siap digunakan",
+                mutedStyle
+            );
+            GUILayout.Space(5);
+            DrawStructureFolderList(createdFolders, itemStyle, mutedStyle);
+        }
+
+        GUILayout.EndVertical();
+        GUILayout.Space(12);
+        GUILayout.EndHorizontal();
+        EditorGUILayout.EndScrollView();
+    }
+
+    private List<string> LoadCreatedFolders()
+    {
+        string savedFolders = EditorPrefs.GetString("SmartLinty_CreatedFolders", "");
+        if (!string.IsNullOrEmpty(savedFolders))
+        {
+            return new List<string>(
+                savedFolders.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            );
+        }
+
+        string genre = EditorPrefs.GetString("SmartLinty_Genre", "");
+        string projectType = EditorPrefs.GetString("SmartLinty_ProjectType", "");
+        if (string.IsNullOrEmpty(genre) || string.IsNullOrEmpty(projectType))
+            return new List<string>();
+
+        List<string> existingFolders = new List<string>();
+        List<string> presetFolders = FolderMakerDatabase.GetAllFolders(
+            genre,
+            projectType,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+        );
+
+        foreach (string folder in presetFolders)
+        {
+            if (AssetDatabase.IsValidFolder(folder))
+                existingFolders.Add(folder);
+        }
+
+        return existingFolders;
+    }
+
+    private void DrawStructureFolderList(
+        List<string> folders,
+        GUIStyle itemStyle,
+        GUIStyle descriptionStyle
+    )
+    {
+        structureFolderListScrollPos = EditorGUILayout.BeginScrollView(
+            structureFolderListScrollPos,
+            false,
+            true,
+            GUILayout.Height(200)
+        );
+
+        for (int i = 0; i < folders.Count; i++)
+        {
+            string folder = folders[i];
+            Rect rowRect = GUILayoutUtility.GetRect(
+                Mathf.Max(220, position.width - 50),
+                30,
+                GUILayout.Height(30),
+                GUILayout.ExpandWidth(true)
+            );
+            EditorGUI.DrawRect(rowRect, new Color(0.14f, 0.14f, 0.14f));
+
+            GUIContent folderIcon = EditorGUIUtility.IconContent("Folder Icon");
+            if (folderIcon.image != null)
+            {
+                GUI.DrawTexture(
+                    new Rect(rowRect.x + 7, rowRect.y + 6, 18, 17),
+                    folderIcon.image,
+                    ScaleMode.ScaleToFit
+                );
+            }
+
+            GUI.Label(
+                new Rect(rowRect.x + 33, rowRect.y + 4, rowRect.width - 70, 22),
+                folder,
+                itemStyle
+            );
+
+            GUI.Label(
+                new Rect(rowRect.x + rowRect.width - 32, rowRect.y + 2, 25, 25),
+                expandedStructureFolderIndex == i ? "v" : ">",
+                new GUIStyle(EditorStyles.boldLabel)
+                {
+                    fontSize = 16,
+                    alignment = TextAnchor.MiddleCenter,
+                    normal = { textColor = new Color(0.72f, 0.72f, 0.72f) }
+                }
+            );
+
+            if (GUI.Button(rowRect, GUIContent.none, GUIStyle.none))
+            {
+                expandedStructureFolderIndex =
+                    expandedStructureFolderIndex == i ? -1 : i;
+                Repaint();
+            }
+
+            if (expandedStructureFolderIndex == i)
+            {
+                Rect detailRect = GUILayoutUtility.GetRect(
+                    Mathf.Max(200, position.width - 70),
+                    45,
+                    GUILayout.Height(45),
+                    GUILayout.ExpandWidth(true)
+                );
+                EditorGUI.DrawRect(detailRect, new Color(0.12f, 0.12f, 0.12f));
+                GUI.Label(
+                    new Rect(detailRect.x + 9, detailRect.y + 6, detailRect.width - 18, 34),
+                    DescribeStructureFolder(folder),
+                    descriptionStyle
+                );
+            }
+        }
+
+        EditorGUILayout.EndScrollView();
+    }
+
+    private string DescribeStructureFolder(string path)
+    {
+        if (path.Contains("/Scripts"))
+            return "Folder untuk script dan logic sistem project.";
+        if (path.Contains("/Prefabs"))
+            return "Folder untuk prefab yang dapat digunakan kembali.";
+        if (path.Contains("/Scenes") || path.Contains("/Levels"))
+            return "Folder untuk scene, level, map, atau area permainan.";
+        if (path.Contains("/Audio"))
+            return "Folder untuk musik, suara, voice, dan ambience.";
+        if (path.Contains("/UI"))
+            return "Folder untuk interface, HUD, menu, dan elemen tampilan.";
+        if (path.Contains("/Models") || path.Contains("/Sprites") || path.Contains("/Textures"))
+            return "Folder untuk asset visual project.";
+        if (path.Contains("/Data"))
+            return "Folder untuk data konfigurasi dan gameplay.";
+        return "Folder bagian dari struktur standar project.";
     }
 
     private void DrawSettingTab()
@@ -799,4 +1012,18 @@ public class MenuLinty : EditorWindow
         EditorGUILayout.EndVertical();
     }
     #endregion
+    private void DrawFileRelocatorTab()
+    {
+        if (fileRelocatorRenderer == null)
+            fileRelocatorRenderer = new FileRelocatorTabRenderer();
+
+        fileRelocatorRenderer.Draw(
+            new Rect(0, 0, position.width, position.height),
+            normal_text,
+            hover_text,
+            active_text
+        );
+    }
+
+
 }

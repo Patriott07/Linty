@@ -3,250 +3,173 @@ using UnityEngine;
 
 public class ProjectSetupLintyPopup : EditorWindow
 {
+    private const float WindowWidth = 480f;
+    private const float WindowHeight = 365f;
+    private const string ProjectNameKey = "SmartLinty_ProjectName";
+    private const string GenreKey = "SmartLinty_Genre";
+    private const string ProjectTypeKey = "SmartLinty_ProjectType";
+
     private string projectName = "";
-    private int selectedGenreIndex = 0;
-    private int selectedProjectTypeIndex = 0;
+    private int selectedGenreIndex;
+    private int selectedProjectTypeIndex;
 
-    private readonly string[] genreOptions = new string[]
-    {
-        "Select Option here..",
-        "Platformer",
-        "TopDown / RPG",
-        "Endless Runner",
-        "Puzzle",
-        "UI Narrative / Visual Novel",
-    };
+    private readonly string[] genreOptions = FolderMakerDatabase.Genres;
+    private readonly string[] projectTypeOptions = FolderMakerDatabase.ProjectTypes;
 
-    private readonly string[] projectTypeOptions = new string[]
-    {
-        "Select Option here..",
-        "2D",
-        "3D",
-        "2D Physics in 3D Space",
-    };
-
-    private static Texture2D limeTex;
-    private static Texture2D darkLimeTex;
-    private static Texture2D darkInputTex;
-
-    Color GenerateColorByHexa255(float r, float g, float b)
-    {
-        return new Color(r / 255, g / 255, b / 255);
-    }
+    private Texture2D limeTexture;
+    private Texture2D darkTexture;
+    private Texture2D inputTexture;
 
     [MenuItem("Tools/Project Setup Window")]
     public static void OpenWindow()
     {
         ProjectSetupLintyPopup window = GetWindow<ProjectSetupLintyPopup>(
             true,
-            "Project Setup - Listy Asistant",
+            "Project Setup - Listy Assistant",
             true
         );
 
-        float width = 480;
-        float height = 365;
-
-        float x = (Screen.currentResolution.width - width) * 0.5f;
-        float y = (Screen.currentResolution.height - height) * 0.5f;
-
-        window.position = new Rect(x, y, width, height);
-        window.minSize = new Vector2(width, height);
-        window.maxSize = new Vector2(width, height);
-        window.ShowUtility(); // Mengunci ukuran & menghilangkan maximize
+        window.minSize = new Vector2(WindowWidth, WindowHeight);
+        window.maxSize = new Vector2(WindowWidth, WindowHeight);
+        window.position = CenteredRect(WindowWidth, WindowHeight);
+        window.ShowUtility();
     }
 
     private void OnEnable()
     {
-        // Tekstur warna kustom
-        limeTex = MakeTex(1, 1, new Color(0.38f, 0.62f, 0.2f)); // Hijau Lime Next
-        darkLimeTex = MakeTex(1, 1, new Color(0.28f, 0.38f, 0.18f)); // Hijau Gelap Previous
-        darkInputTex = MakeTex(1, 1, GenerateColorByHexa255(35, 35, 35)); // Gelap Input Box
+        projectName = EditorPrefs.GetString(ProjectNameKey, "");
+        selectedGenreIndex = IndexOf(genreOptions, EditorPrefs.GetString(GenreKey, ""));
+        selectedProjectTypeIndex = IndexOf(projectTypeOptions, EditorPrefs.GetString(ProjectTypeKey, ""));
+
+        limeTexture = MakeTexture(new Color(0.38f, 0.62f, 0.20f));
+        darkTexture = MakeTexture(new Color(0.12f, 0.12f, 0.12f));
+        inputTexture = MakeTexture(new Color(0.09f, 0.09f, 0.09f));
     }
 
-    
     private void OnGUI()
     {
-        // Background utama gelap
         EditorGUI.DrawRect(
             new Rect(0, 0, position.width, position.height),
             new Color(0.18f, 0.18f, 0.18f)
         );
 
-        float margin = 25f;
-        // Lebar konten otomatis menyesuaikan lebar window dikurangi margin kiri & kanan
-        float availableWidth = position.width - (margin * 2);
+        GUIStyle titleStyle = MakeLabel(22, FontStyle.Bold, new Color(0.87f, 0.87f, 0.87f));
+        GUIStyle instructionStyle = MakeLabel(12, FontStyle.Bold, new Color(0.95f, 0.47f, 0.16f));
+        instructionStyle.wordWrap = true;
+        GUIStyle fieldLabelStyle = MakeLabel(11, FontStyle.Bold, new Color(0.68f, 0.68f, 0.68f));
+        GUIStyle inputStyle = new GUIStyle(EditorStyles.textField)
+        {
+            fontSize = 12,
+            fixedHeight = 36,
+            padding = new RectOffset(10, 10, 8, 8),
+            normal = { background = inputTexture, textColor = Color.white },
+            focused = { background = inputTexture, textColor = Color.white }
+        };
+        GUIStyle popupStyle = new GUIStyle(EditorStyles.popup)
+        {
+            fontSize = 12,
+            fixedHeight = 36,
+            padding = new RectOffset(10, 10, 0, 0),
+            normal = { background = inputTexture, textColor = new Color(0.72f, 0.72f, 0.72f) },
+            focused = { background = inputTexture, textColor = Color.white }
+        };
+        GUIStyle previousStyle = MakeButtonStyle(darkTexture, 13);
+        GUIStyle nextStyle = MakeButtonStyle(limeTexture, 13);
 
-        // --- 1. MASTER CONTAINER (Analoginya: Wrapper/Div utama dengan Padding/Margin) ---
-        // GUILayout.BeginHorizontal();
-        // GUILayout.Space(25); // Margin Kiri (Gap dari pinggir kiri window)
-
-        // GUILayout.BeginVertical();
-        // GUILayout.Space(20); // Margin Atas (Gap dari pinggir atas window)
-
-        GUILayout.Space(25);
-
-        // Header Title & Subtitle
+        GUILayout.Space(20);
         GUILayout.BeginHorizontal();
         GUILayout.Space(25);
         GUILayout.BeginVertical();
 
-        GUIStyle titleStyle = new GUIStyle(EditorStyles.boldLabel)
-        {
-            fontSize = 22,
-            normal = { textColor = new Color(0.9f, 0.9f, 0.9f) },
-        };
-        GUIStyle subStyle = new GUIStyle(EditorStyles.boldLabel)
-        {
-            fontSize = 11,
-            normal = { textColor = new Color(0.92f, 0.52f, 0.2f) },
-        };
-
         GUILayout.Label("Whats you build?", titleStyle);
-        GUILayout.Space(4);
+        GUILayout.Space(8);
         GUILayout.Label(
             "Please Fill Correctly For Better Inspection Suggestion System",
-            subStyle,
-            GUILayout.Width(availableWidth)
+            instructionStyle,
+            GUILayout.Width(430),
+            GUILayout.Height(32)
         );
 
-        GUILayout.Space(20);
+        GUILayout.Space(11);
+        GUILayout.Label("Name Project", fieldLabelStyle);
+        projectName = EditorGUILayout.TextField(projectName, inputStyle, GUILayout.Height(36));
 
-        // Style Label Form
-        GUIStyle formLabelStyle = new GUIStyle(EditorStyles.boldLabel)
-        {
-            fontSize = 11,
-            normal = { textColor = new Color(0.65f, 0.65f, 0.65f) },
-        };
-
-        // Style Input Field Kustom (Mirip Referensi Gambar)
-        GUIStyle customInputStyle = new GUIStyle(EditorStyles.textField)
-        {
-            fontSize = 12,
-            fixedHeight = 32,
-            alignment = TextAnchor.MiddleLeft,
-            padding = new RectOffset(10, 10, 8, 8),
-            normal =
-            {
-                background = darkInputTex,
-                textColor = string.IsNullOrEmpty(projectName)
-                    ? new Color(0.35f, 0.35f, 0.35f)
-                    : GenerateColorByHexa255(138, 138, 138),
-            },
-        };
-
-        // Style Dropdown Popup Kustom
-        GUIStyle customPopupStyle = new GUIStyle(EditorStyles.popup)
-        {
-            fontSize = 12,
-            fixedHeight = 32,
-            alignment = TextAnchor.MiddleLeft,
-            padding = new RectOffset(10, 25, 0, 0),
-            normal = { background = darkInputTex, textColor = new Color(0.75f, 0.75f, 0.75f) },
-        };
-
-        // 1. Name Project Input
-        GUILayout.Label("Name Project", formLabelStyle);
-        // GUILayout.Space(4);
-
-        // Handling Placeholder Text
-        // string displayProjectName = string.IsNullOrEmpty(projectName) ? "" : projectName;
-        string newName = EditorGUILayout.TextField(
-            // displayProjectName,
-            null,
-            customInputStyle,
-            GUILayout.Width(availableWidth)
-        );
-
-        GUILayout.Space(12 * 2);
-
-        // 2. Genre Game Dropdown
-        GUILayout.Label("Genre Game", formLabelStyle);
-        GUILayout.Space(4);
+        GUILayout.Space(10);
+        GUILayout.Label("Genre Game", fieldLabelStyle);
         selectedGenreIndex = EditorGUILayout.Popup(
             selectedGenreIndex,
             genreOptions,
-            customPopupStyle,
-            GUILayout.Width(availableWidth),
-            GUILayout.Height(32)
+            popupStyle,
+            GUILayout.Height(36)
         );
 
-        GUILayout.Space(12);
-
-        // 3. Project Type Dropdown
-        GUILayout.Label("Project Type (2d/3d)", formLabelStyle);
-        GUILayout.Space(4);
+        GUILayout.Space(10);
+        GUILayout.Label("Project Type (2d/3d)", fieldLabelStyle);
         selectedProjectTypeIndex = EditorGUILayout.Popup(
             selectedProjectTypeIndex,
             projectTypeOptions,
-            customPopupStyle,
-            GUILayout.Width(availableWidth),
-            GUILayout.Height(32)
+            popupStyle,
+            GUILayout.Height(36)
         );
 
         GUILayout.Space(15);
-
-        // Baris Bawah: Tombol Navigasi & Dots Stepper
         GUILayout.BeginHorizontal();
 
-        GUIStyle prevButtonStyle = new GUIStyle(GUI.skin.button)
+        if (GUILayout.Button("← Previous", previousStyle, GUILayout.Width(115), GUILayout.Height(36)))
         {
-            alignment = TextAnchor.MiddleCenter,
-            fontSize = 13,
-            fontStyle = FontStyle.Bold,
-            normal = { background = darkLimeTex, textColor = Color.white },
-        };
-
-        GUIStyle nextButtonStyle = new GUIStyle(GUI.skin.button)
-        {
-            alignment = TextAnchor.MiddleCenter,
-            fontSize = 13,
-            fontStyle = FontStyle.Bold,
-            normal = { background = limeTex, textColor = Color.white },
-        };
-
-        if (
-            GUILayout.Button(
-                "← Previous",
-                prevButtonStyle,
-                GUILayout.Width(115),
-                GUILayout.Height(36)
-            )
-        )
-        {
+            SaveDraft();
             WelcomeLintyPopup.OpenWindow();
             Close();
         }
 
-        GUILayout.Space(8);
+        GUILayout.Space(5);
 
-        if (GUILayout.Button("Next →", nextButtonStyle, GUILayout.Width(85), GUILayout.Height(36)))
+        if (GUILayout.Button("Next →", nextStyle, GUILayout.Width(85), GUILayout.Height(36)))
         {
-            EditorPrefs.SetString("SmartLinty_ProjectName", projectName);
-            EditorPrefs.SetString("SmartLinty_Genre", genreOptions[selectedGenreIndex]);
-            EditorPrefs.SetString(
-                "SmartLinty_ProjectType",
-                projectTypeOptions[selectedProjectTypeIndex]
-            );
+            if (!ValidateInput())
+                return;
 
-            Debug.Log(
-                $"Saved Setup: {projectName} | {genreOptions[selectedGenreIndex]} | {projectTypeOptions[selectedProjectTypeIndex]}"
-            );
-
-            //Open next
+            SaveDraft();
             FolderStructureLintyPopup.OpenWindow();
             Close();
         }
 
         GUILayout.FlexibleSpace();
-
-        // Indikator Stepper Dots (Dot pertama aktif warna lime)
-        DrawStepperDots(0, 2);
-
+        DrawStepperDots(1, 3);
         GUILayout.Space(20);
         GUILayout.EndHorizontal();
 
         GUILayout.EndVertical();
+        GUILayout.Space(25);
         GUILayout.EndHorizontal();
+    }
+
+    private bool ValidateInput()
+    {
+        if (string.IsNullOrWhiteSpace(projectName))
+        {
+            EditorUtility.DisplayDialog("Project Setup", "Nama project wajib diisi terlebih dahulu.", "OK");
+            return false;
+        }
+
+        if (selectedGenreIndex == 0 || selectedProjectTypeIndex == 0)
+        {
+            EditorUtility.DisplayDialog(
+                "Project Setup",
+                "Pilih Genre Game dan Project Type terlebih dahulu.",
+                "OK"
+            );
+            return false;
+        }
+
+        return true;
+    }
+
+    private void SaveDraft()
+    {
+        EditorPrefs.SetString(ProjectNameKey, projectName.Trim());
+        EditorPrefs.SetString(GenreKey, genreOptions[selectedGenreIndex]);
+        EditorPrefs.SetString(ProjectTypeKey, projectTypeOptions[selectedProjectTypeIndex]);
     }
 
     private void DrawStepperDots(int activeIndex, int totalDots)
@@ -254,40 +177,67 @@ public class ProjectSetupLintyPopup : EditorWindow
         GUILayout.BeginHorizontal();
         for (int i = 0; i < totalDots; i++)
         {
-            Color dotColor =
-                (i == activeIndex) ? new Color(0.7f, 0.95f, 0.3f) : new Color(0.45f, 0.45f, 0.45f);
-            Rect dotRect = GUILayoutGetRect(12, 12);
-            Handles.BeginGUI();
-            Handles.color = dotColor;
-            Handles.DrawSolidDisc(
-                new Vector3(dotRect.x + 6, dotRect.y + 12, 0),
-                Vector3.forward,
-                5
+            Rect dotRect = GUILayoutUtility.GetRect(12, 12, GUILayout.Width(12), GUILayout.Height(12));
+            EditorGUI.DrawRect(
+                new Rect(dotRect.x + 3, dotRect.y + 3, 6, 6),
+                i == activeIndex
+                    ? new Color(0.70f, 0.95f, 0.30f)
+                    : new Color(0.45f, 0.45f, 0.45f)
             );
-            Handles.EndGUI();
-            GUILayout.Space(4);
+            GUILayout.Space(3);
         }
         GUILayout.EndHorizontal();
     }
 
-    private Rect GUILayoutGetRect(float width, float height)
+    private static int IndexOf(string[] options, string value)
     {
-        return GUILayoutUtility.GetRect(
+        for (int i = 0; i < options.Length; i++)
+        {
+            if (options[i] == value)
+                return i;
+        }
+
+        return 0;
+    }
+
+    private static Rect CenteredRect(float width, float height)
+    {
+        return new Rect(
+            (Screen.currentResolution.width - width) * 0.5f,
+            (Screen.currentResolution.height - height) * 0.5f,
             width,
-            height,
-            GUILayout.Width(width),
-            GUILayout.Height(height)
+            height
         );
     }
 
-    private Texture2D MakeTex(int width, int height, Color col)
+    private static GUIStyle MakeLabel(int size, FontStyle fontStyle, Color color)
     {
-        Color[] pix = new Color[width * height];
-        for (int i = 0; i < pix.Length; ++i)
-            pix[i] = col;
-        Texture2D result = new Texture2D(width, height);
-        result.SetPixels(pix);
-        result.Apply();
-        return result;
+        return new GUIStyle(EditorStyles.label)
+        {
+            fontSize = size,
+            fontStyle = fontStyle,
+            normal = { textColor = color }
+        };
+    }
+
+    private static GUIStyle MakeButtonStyle(Texture2D background, int size)
+    {
+        return new GUIStyle(GUI.skin.button)
+        {
+            fontSize = size,
+            fontStyle = FontStyle.Bold,
+            alignment = TextAnchor.MiddleCenter,
+            normal = { background = background, textColor = Color.white },
+            hover = { background = background, textColor = Color.white },
+            active = { background = background, textColor = Color.white }
+        };
+    }
+
+    private static Texture2D MakeTexture(Color color)
+    {
+        Texture2D texture = new Texture2D(1, 1);
+        texture.SetPixel(0, 0, color);
+        texture.Apply();
+        return texture;
     }
 }

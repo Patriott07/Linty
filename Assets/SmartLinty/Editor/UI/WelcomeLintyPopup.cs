@@ -3,15 +3,13 @@ using UnityEngine;
 
 public class WelcomeLintyPopup : EditorWindow
 {
+    private const float WindowWidth = 480f;
+    private const float WindowHeight = 420f;
     private static Texture2D mascotTexture;
-
-    // Color GenerateColorByHexa255(float r, float g, float b)
-    // {
-    //     return new Color(r / 255, g / 255, b / 255);
-    // }
+    private static Texture2D buttonTexture;
 
     [InitializeOnLoadMethod]
-    static void ShowOnFirstLoad()
+    private static void ShowOnFirstLoad()
     {
         if (!EditorPrefs.GetBool("SmartLinty_Welcomed", false))
         {
@@ -25,155 +23,140 @@ public class WelcomeLintyPopup : EditorWindow
     {
         WelcomeLintyPopup window = GetWindow<WelcomeLintyPopup>(
             true,
-            "Welcome - Listy Asistant",
-            false
+            "Welcome - Listy Assistant",
+            true
         );
 
-        float width = 480;
-        float height = 420;
-
-        // Posisi di tengah layar (Center)
-        float x = (Screen.currentResolution.width - width) * 0.5f;
-        float y = (Screen.currentResolution.height - height) * 0.5f;
-
-        window.position = new Rect(x, y, width, height);
-        window.minSize = new Vector2(width, height);
-        window.maxSize = new Vector2(width, height);
-        window.Show();
+        window.minSize = new Vector2(WindowWidth, WindowHeight);
+        window.maxSize = new Vector2(WindowWidth, WindowHeight);
+        window.position = CenteredRect(WindowWidth, WindowHeight);
+        window.ShowUtility();
     }
 
     private void OnEnable()
     {
-        // Sesuaikan path ini dengan letak file gambar maskot kamu di folder Assets
         mascotTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(
             "Assets/SmartLinty/Editor/AiraMascot.png"
         );
+
+        if (buttonTexture == null)
+            buttonTexture = MakeTexture(new Color(0.38f, 0.62f, 0.20f));
     }
 
     private void OnGUI()
     {
-        // Background gelap ala tema UI
         EditorGUI.DrawRect(
             new Rect(0, 0, position.width, position.height),
             new Color(0.18f, 0.18f, 0.18f)
         );
 
+        GUIStyle titleStyle = MakeLabel(24, FontStyle.Bold, Color.white);
+        GUIStyle subtitleStyle = MakeLabel(16, FontStyle.Bold, new Color(0.68f, 0.68f, 0.68f));
+        GUIStyle descriptionStyle = MakeLabel(11, FontStyle.Normal, new Color(0.72f, 0.72f, 0.72f));
+        descriptionStyle.wordWrap = true;
+        GUIStyle orangeStyle = MakeLabel(12, FontStyle.Bold, new Color(0.95f, 0.47f, 0.16f));
+        GUIStyle nextStyle = MakeButtonStyle(buttonTexture, 13);
+        GUIStyle linkStyle = MakeLabel(12, FontStyle.Bold, new Color(0.45f, 0.68f, 0.90f));
+        linkStyle.alignment = TextAnchor.MiddleRight;
+
+        GUILayout.Space(28);
+        GUILayout.BeginHorizontal();
         GUILayout.Space(20);
 
-        // Baris Atas: Maskot di Kiri, Teks Welcome di Kanan
-        GUILayout.BeginHorizontal();
-        GUILayout.Space(15);
-
-        // Menampilkan Gambar Maskot
         if (mascotTexture != null)
-        {
-            GUILayout.Label(mascotTexture, GUILayout.Width(210), GUILayout.Height(210));
-        }
+            GUILayout.Label(mascotTexture, GUIStyle.none, GUILayout.Width(190), GUILayout.Height(190));
         else
-        {
-            // Placeholder jika gambar belum dimasukkan
-            GUILayout.Box(
-                "Masukin Gambar\nAiraMascot.png",
-                GUILayout.Width(160),
-                GUILayout.Height(160)
-            );
-        }
+            GUILayout.Box("AiraMascot.png", GUILayout.Width(190), GUILayout.Height(190));
 
-        GUILayout.Space(15);
-
-        // Teks Judul
+        GUILayout.Space(18);
         GUILayout.BeginVertical();
-        GUILayout.Space(80);
-        GUIStyle titleStyle = new GUIStyle(EditorStyles.boldLabel)
-        {
-            fontSize = 24,
-            normal = { textColor = Color.white },
-        };
-        GUIStyle subStyle = new GUIStyle(EditorStyles.label)
-        {
-            fontSize = 16,
-            normal = { textColor = new Color(0.7f, 0.7f, 0.7f) },
-        };
-
+        GUILayout.Space(66);
         GUILayout.Label("WELCOME!", titleStyle);
-        GUILayout.Label("Listy Asistant", subStyle);
+        GUILayout.Label("Listy Assistant", subtitleStyle);
         GUILayout.EndVertical();
 
+        GUILayout.FlexibleSpace();
         GUILayout.EndHorizontal();
 
         GUILayout.Space(15);
-
-        // Bagian Deskripsi & Tombol Bawah
         GUILayout.BeginHorizontal();
         GUILayout.Space(20);
         GUILayout.BeginVertical();
 
-        GUIStyle descStyle = new GUIStyle(EditorStyles.wordWrappedLabel)
-        {
-            fontSize = 11,
-            normal = { textColor = new Color(0.75f, 0.75f, 0.75f) },
-        };
         GUILayout.Label(
             "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since 1966, when designers at Letraset and James",
-            descStyle,
-            GUILayout.Width(430)
+            descriptionStyle,
+            GUILayout.Width(430),
+            GUILayout.Height(58)
         );
 
-        GUILayout.Space(10);
+        GUILayout.Space(4);
+        GUILayout.Label("What next? Help Our System know what you made", orangeStyle);
 
-        GUIStyle nextStepStyle = new GUIStyle(EditorStyles.boldLabel)
-        {
-            fontSize = 12,
-            normal = { textColor = new Color(0.95f, 0.55f, 0.15f) },
-        };
-        GUILayout.Label("What next? Help Our System know what you made", nextStepStyle);
-
-        GUILayout.Space(25);
-
-        // Tombol Next & Link PDF
+        GUILayout.Space(24);
         GUILayout.BeginHorizontal();
 
-        // 1. Buat tekstur warna hijau lime
-        Texture2D limeTex = new Texture2D(1, 1);
-        limeTex.SetPixel(0, 0, new Color(0.4f, 0.75f, 0.2f)); // Warna Lime
-        limeTex.Apply();
-
-        // 2. Buat style khusus tombol Next
-        GUIStyle nextButtonStyle = new GUIStyle(GUI.skin.button)
+        if (GUILayout.Button("Next →", nextStyle, GUILayout.Width(100), GUILayout.Height(35)))
         {
-            alignment = TextAnchor.MiddleCenter,
-            fontSize = 13,
-            fontStyle = FontStyle.Bold,
-            normal = { background = limeTex, textColor = Color.white },
-            active = { background = limeTex, textColor = Color.gray },
-        };
-
-        // 3. Panggil button dengan style baru
-        if (GUILayout.Button("Next ➔", nextButtonStyle, GUILayout.Width(100), GUILayout.Height(30)))
-        {
-            Debug.Log("Next clicked! Lanjut ke Popup II (Setup Project)");
             ProjectSetupLintyPopup.OpenWindow();
             Close();
         }
 
         GUILayout.FlexibleSpace();
 
-        GUIStyle linkStyle = new GUIStyle(EditorStyles.label)
-        {
-            normal = { textColor = new Color(0.3f, 0.6f, 1f) },
-        };
-
-        if (GUILayout.Button("Open pdf file", linkStyle))
+        if (GUILayout.Button("Open pdf file", linkStyle, GUILayout.Width(115), GUILayout.Height(28)))
         {
             string path = Application.dataPath + "/SmartLinty/Docs/LintyDocumentation.pdf";
-            EditorUtility.OpenWithDefaultApp(path);
+            if (System.IO.File.Exists(path))
+                EditorUtility.OpenWithDefaultApp(path);
+            else
+                EditorUtility.DisplayDialog("Documentation", "File PDF tidak ditemukan.", "OK");
         }
 
-        GUILayout.Space(25);
         GUILayout.EndHorizontal();
-
         GUILayout.EndVertical();
         GUILayout.Space(20);
         GUILayout.EndHorizontal();
+    }
+
+    private static Rect CenteredRect(float width, float height)
+    {
+        return new Rect(
+            (Screen.currentResolution.width - width) * 0.5f,
+            (Screen.currentResolution.height - height) * 0.5f,
+            width,
+            height
+        );
+    }
+
+    private static GUIStyle MakeLabel(int size, FontStyle fontStyle, Color color)
+    {
+        return new GUIStyle(EditorStyles.label)
+        {
+            fontSize = size,
+            fontStyle = fontStyle,
+            normal = { textColor = color }
+        };
+    }
+
+    private static GUIStyle MakeButtonStyle(Texture2D background, int size)
+    {
+        return new GUIStyle(GUI.skin.button)
+        {
+            fontSize = size,
+            fontStyle = FontStyle.Bold,
+            alignment = TextAnchor.MiddleCenter,
+            normal = { background = background, textColor = Color.white },
+            hover = { background = background, textColor = Color.white },
+            active = { background = background, textColor = Color.white }
+        };
+    }
+
+    private static Texture2D MakeTexture(Color color)
+    {
+        Texture2D texture = new Texture2D(1, 1);
+        texture.SetPixel(0, 0, color);
+        texture.Apply();
+        return texture;
     }
 }
