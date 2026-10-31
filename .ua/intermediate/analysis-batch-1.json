@@ -1,0 +1,39 @@
+{
+  "nodes": [
+    {
+      "id": "page:0:1",
+      "summary": "The primary canvas containing the ideation wireframes for comparing card layout directions.",
+      "tags": ["ideation", "wireframe", "layout", "comparison"]
+    },
+    {
+      "id": "screen:96:710",
+      "summary": "A wireframe exploring a modular card layout with reusable content blocks and flexible composition.",
+      "tags": ["wireframe", "card", "modular", "layout"]
+    },
+    {
+      "id": "screen:96:737",
+      "summary": "A wireframe exploring an editorial layout that uses asymmetric placement to create visual hierarchy.",
+      "tags": ["wireframe", "editorial", "asymmetric", "layout"]
+    },
+    {
+      "id": "screen:96:761",
+      "summary": "A wireframe exploring an orderly stacked layout for presenting content in a clear vertical sequence.",
+      "tags": ["wireframe", "stacked", "orderly", "layout"]
+    },
+    {
+      "id": "screen:158:1591",
+      "summary": "A second modular card wireframe variant for comparing reusable card-based composition options.",
+      "tags": ["wireframe", "card", "modular", "variant"]
+    }
+  ],
+  "edges": [
+    {
+      "source": "screen:96:710",
+      "target": "screen:158:1591",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.9,
+      "description": "Both explore modular card wireframe directions"
+    }
+  ]
+}

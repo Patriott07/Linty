@@ -1,9 +1,12 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Custom.Interface;
+using TMPro;
 using Unity.VisualScripting;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 public class MenuLinty : EditorWindow
 {
@@ -13,7 +16,7 @@ public class MenuLinty : EditorWindow
     private Dictionary<string, PropertyState> guideStates = new Dictionary<string, PropertyState>();
 
     private float lastRepaintTime;
-    private float repaintInterval = 1f; // Atur ke 3 detik sekali (bisa diubah jadi 1f kalau mau 1 detik)
+    private float repaintInterval = 2f; // Atur ke 3 detik sekali (bisa diubah jadi 1f kalau mau 1 detik)
 
     private GameObject selectedObj;
     private Texture2D activeTabTex;
@@ -26,6 +29,15 @@ public class MenuLinty : EditorWindow
     // Status state untuk Tab Guide
     private bool showBoxCollider2DGuide = false;
     private bool showRigidbody2DGuide = false;
+    private bool showTransformGuide = false;
+    private bool showCanvasGuide = false;
+    private bool showCanvasGroupGuide = false;
+    private bool showAudioSourceGuide = false;
+    private bool showCameraGuide = false;
+    private bool showAnimatorGuide = false;
+    private bool showSpriteRendererGuide = false;
+    private bool showLight2DGuide = false;
+    private bool showTextMeshProGuide = false;
 
     private bool isTriggerEffectVisible = false;
     private bool sizeEffectVisible = false;
@@ -362,9 +374,137 @@ public class MenuLinty : EditorWindow
 
     private void DrawGuideTab()
     {
+        selectedObj = Selection.activeGameObject;
+        if (selectedObj == null)
+        {
+            DrawWarningBanner("Tidak ada Gameobject dipilih.");
+            GUILayout.Space(8);
+            GUILayout.Label("Mulai Pilih Object Di dalam Hierarchy Panelmu. untuk melihat\nInformasi Object", new GUIStyle(EditorStyles.label)
+            {
+                normal = { textColor = Color.white }, fontSize = 11, fontStyle = FontStyle.Bold
+            });
+            return;
+        }
+
+        DrawBasicInfoSection(selectedObj);
+        guideScrollPos = EditorGUILayout.BeginScrollView(guideScrollPos);
+
+        if (selectedObj.TryGetComponent(out BoxCollider2D boxCollider2D))
+        {
+            DrawGuideSection(boxCollider2D, "Box Collider 2D", ref showBoxCollider2DGuide,
+                new List<IGuideable> { new CustomBoxCollider2D_Material(), new CustomBoxCollider2D_Istrigger(), new CustomBoxCollider2D_UsedByEfector(), new CustomBoxCollider2D_UsedByComposite(), new CustomBoxCollider2D_AutoTiling(), new CustomBoxCollider2D_Offset(), new CustomBoxCollider2D_EdgeRadius() },
+                (handler, component) => handler.GetData(component));
+        }
+
+        if (selectedObj.TryGetComponent(out Rigidbody2D rigidbody2D))
+        {
+            DrawGuideSection(rigidbody2D, "Rigidbody 2D", ref showRigidbody2DGuide,
+                new List<IRigidbody2DGuideable> { new Rigidbody2DBodyTypeGuide(), new Rigidbody2DMaterialGuide(), new Rigidbody2DSimulatedGuide(), new Rigidbody2DAutoMassGuide(), new Rigidbody2DMassGuide(), new Rigidbody2DLinearDampingGuide(), new Rigidbody2DAngularDampingGuide(), new Rigidbody2DGravityScaleGuide(), new Rigidbody2DCollisionDetectionGuide(), new Rigidbody2DSleepingModeGuide(), new Rigidbody2DInterpolateGuide(), new Rigidbody2DConstraintsGuide() },
+                (handler, component) => handler.GetData(component));
+        }
+
+        DrawGuideSection(selectedObj.transform, "Transform", ref showTransformGuide,
+            new List<ITransformGuideable> { new TransformPositionGuide(), new TransformRotationGuide(), new TransformScaleGuide() },
+            (handler, component) => handler.GetData(component));
+
+        if (selectedObj.TryGetComponent(out Canvas canvas))
+        {
+            DrawGuideSection(canvas, "Canvas", ref showCanvasGuide,
+                new List<ICanvasGuideable> { new CanvasRenderModeGuide(), new CanvasPixelPerfectGuide(), new CanvasRenderCameraGuide(), new CanvasPlaneDistanceGuide(), new CanvasSortingLayerGuide(), new CanvasOrderInLayerGuide(), new CanvasTargetDisplayGuide(), new CanvasShaderChannelsGuide() },
+                (handler, component) => handler.GetData(component));
+        }
+
+        if (selectedObj.TryGetComponent(out CanvasGroup canvasGroup))
+        {
+            DrawGuideSection(canvasGroup, "Canvas Group", ref showCanvasGroupGuide,
+                new List<ICanvasGroupGuideable> { new CanvasGroupAlphaGuide(), new CanvasGroupInteractableGuide(), new CanvasGroupBlocksRaycastsGuide(), new CanvasGroupIgnoreParentGuide() },
+                (handler, component) => handler.GetData(component));
+        }
+
+        if (selectedObj.TryGetComponent(out AudioSource audioSource))
+        {
+            DrawGuideSection(audioSource, "AudioSource", ref showAudioSourceGuide,
+                new List<IAudioSourceGuideable> { new AudioSourceClipGuide(), new AudioSourceOutputGuide(), new AudioSourceMuteGuide(), new AudioSourcePlayOnAwakeGuide(), new AudioSourceLoopGuide(), new AudioSourceVolumeGuide(), new AudioSourcePitchGuide(), new AudioSourceSpatialBlendGuide(), new AudioSourcePriorityGuide(), new AudioSourceBypassGuide(), new AudioSource3DSettingsGuide() },
+                (handler, component) => handler.GetData(component));
+        }
+
+        if (selectedObj.TryGetComponent(out Camera camera))
+        {
+            DrawGuideSection(camera, "Camera", ref showCameraGuide,
+                new List<ICameraGuideable> { new CameraClearFlagsGuide(), new CameraProjectionGuide(), new CameraFieldOfViewGuide(), new CameraCullingMaskGuide(), new CameraClippingPlanesGuide(), new CameraViewportGuide(), new CameraDepthGuide(), new CameraTargetTextureGuide(), new CameraRenderingGuide() },
+                (handler, component) => handler.GetData(component));
+        }
+
+        if (selectedObj.TryGetComponent(out Animator animator))
+        {
+            DrawGuideSection(animator, "Animator", ref showAnimatorGuide,
+                new List<IAnimatorGuideable> { new AnimatorControllerGuide(), new AnimatorAvatarGuide(), new AnimatorRootMotionGuide(), new AnimatorUpdateModeGuide(), new AnimatorCullingModeGuide(), new AnimatorParametersGuide(), new AnimatorLayersGuide() },
+                (handler, component) => handler.GetData(component));
+        }
+
+        if (selectedObj.TryGetComponent(out SpriteRenderer spriteRenderer))
+        {
+            DrawGuideSection(spriteRenderer, "Sprite Renderer", ref showSpriteRendererGuide,
+                new List<ISpriteRendererGuideable> { new SpriteRendererSpriteGuide(), new SpriteRendererColorGuide(), new SpriteRendererFlipGuide(), new SpriteRendererMaterialGuide(), new SpriteRendererDrawModeGuide(), new SpriteRendererSizeGuide(), new SpriteRendererMaskGuide(), new SpriteRendererSortingLayerGuide(), new SpriteRendererOrderGuide(), new SpriteRendererSortPointGuide() },
+                (handler, component) => handler.GetData(component));
+        }
+
+        if (selectedObj.TryGetComponent(out Light2D light2D))
+        {
+            DrawGuideSection(light2D, "2D Lighting", ref showLight2DGuide,
+                new List<ILight2DGuideable> { new Light2DTypeGuide(), new Light2DBlendStyleGuide(), new Light2DColorGuide(), new Light2DIntensityGuide(), new Light2DSortingLayersGuide(), new Light2DFalloffGuide(), new Light2DPointRadiusGuide(), new Light2DShadowGuide() },
+                (handler, component) => handler.GetData(component));
+        }
+
+        if (selectedObj.TryGetComponent(out TMP_Text textMeshPro))
+        {
+            DrawGuideSection(textMeshPro, "TextMeshPro", ref showTextMeshProGuide,
+                new List<ITextMeshProGuideable> { new TextMeshProTextGuide(), new TextMeshProFontGuide(), new TextMeshProMaterialGuide(), new TextMeshProFontSizeGuide(), new TextMeshProColorGuide(), new TextMeshProAlignmentGuide(), new TextMeshProAutoSizeGuide(), new TextMeshProWrappingGuide(), new TextMeshProOverflowGuide(), new TextMeshProRichTextGuide(), new TextMeshProRaycastGuide(), new TextMeshProExtraSettingsGuide() },
+                (handler, component) => handler.GetData(component));
+        }
+
+        EditorGUILayout.EndScrollView();
+    }
+
+    private void DrawGuideSection<TComponent, TGuide>(TComponent component, string title, ref bool foldoutStatus, List<TGuide> handlers, Func<TGuide, TComponent, GuideItem> getData)
+    {
+        if (component == null) return;
+        GUILayout.Space(5);
+        DrawComponentHeaderBox(title, ref foldoutStatus);
+        if (!foldoutStatus) return;
+        GUILayout.Space(5);
+        foreach (TGuide handler in handlers) DrawGuideItem(getData(handler, component));
+    }
+
+    private void DrawGuideTabLegacy()
+    {
+
+        // diagScrollPos = EditorGUILayout.BeginScrollView(diagScrollPos);
+        selectedObj = Selection.activeGameObject;
+
+        if (selectedObj == null)
+        {
+            DrawWarningBanner("Tidak ada Gameobject dipilih.");
+
+            GUILayout.Space(8);
+            GUILayout.BeginHorizontal();
+            GUILayout.Space(12);
+
+            GUIStyle infoStyle = new GUIStyle(EditorStyles.label)
+            {
+                normal = { textColor = Color.white },
+                fontSize = 11,
+                fontStyle = FontStyle.Bold,
+            };
+            GUILayout.Label("Mulai Pilih Object Di dalam Hierarchy Panelmu. untuk melihat\n Informasi Object", infoStyle);
+            GUILayout.EndHorizontal();
+
+            // EditorGUILayout.EndScrollView();
+            return;
+        }
+
         // 1. Bagian Informasi Dasar
         DrawBasicInfoSection(selectedObj);
-        // GUILayout.Space(10);
 
         guideScrollPos = EditorGUILayout.BeginScrollView(guideScrollPos);
         BoxCollider2D liveBox2D =
@@ -436,21 +576,66 @@ public class MenuLinty : EditorWindow
             DrawComponentHeaderBox("🟢  Rigidbody 2D", ref showRigidbody2DGuide);
             // Ambil komponen BoxCollider2D dari objek aktif secara live
             // 2. KELOMPOK RIGIDBODY 2D
-            if (showRigidbody2DGuide)
-            {
-                GUILayout.Space(5);
-
-                // Body Type Guide
-                DrawGuideCard(
-                    "Body Type",
-                    "Menentukan jenis perilaku fisika dasar objek apakah bergerak bebas, statis, atau kinematik.",
-                    ref bodyTypeEffectVisible,
-                    "1. When Dynamic : Objek aktif terpengaruh gravitasi & gaya luar.\n2. When Kinematic : Digerakkan manual lewat skrip/animasi.\n3. When Static : Dibekukan permanen sebagai penghalang."
-                );
-            }
             GUILayout.Space(5);
         }
+        List<IRigidbody2DGuideable> rigidbodyHandlers = new List<IRigidbody2DGuideable>
+        {
+            new Rigidbody2DBodyTypeGuide(),
+            new Rigidbody2DMaterialGuide(),
+            new Rigidbody2DSimulatedGuide(),
+            new Rigidbody2DAutoMassGuide(),
+            new Rigidbody2DMassGuide(),
+            new Rigidbody2DLinearDampingGuide(),
+            new Rigidbody2DAngularDampingGuide(),
+            new Rigidbody2DGravityScaleGuide(),
+            new Rigidbody2DCollisionDetectionGuide(),
+            new Rigidbody2DSleepingModeGuide(),
+            new Rigidbody2DInterpolateGuide(),
+            new Rigidbody2DConstraintsGuide(),
+        };
+
+        if (rigidbody2D != null && showRigidbody2DGuide)
+        {
+            foreach (IRigidbody2DGuideable handler in rigidbodyHandlers)
+            {
+                DrawGuideItem(handler.GetData(rigidbody2D));
+            }
+        }
+
+        DrawComponentHeaderBox("Transform", ref showTransformGuide);
+        if (showTransformGuide)
+        {
+            List<ITransformGuideable> transformHandlers = new List<ITransformGuideable>
+            {
+                new TransformPositionGuide(),
+                new TransformRotationGuide(),
+                new TransformScaleGuide(),
+            };
+
+            foreach (ITransformGuideable handler in transformHandlers)
+            {
+                DrawGuideItem(handler.GetData(selectedObj.transform));
+            }
+        }
+
         EditorGUILayout.EndScrollView();
+    }
+
+    private void DrawGuideItem(GuideItem guide)
+    {
+        string propName = guide.propertyName ?? "Property";
+        if (!guideStates.ContainsKey(propName))
+        {
+            guideStates[propName] = new PropertyState();
+        }
+
+        PropertyState state = guideStates[propName];
+        DrawGuideCard(
+            propName,
+            guide.oneLineDesc ?? "Deskripsi panduan komponen.",
+            ref state.isEffectVisible,
+            guide.currentEffect ?? "Belum ada data efek saat ini."
+        );
     }
 
     private void DrawStructureTab()
